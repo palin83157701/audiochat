@@ -1,7 +1,7 @@
 // Audio Chat Application Client-Side Logic
 
-// Initialize socket connection
-const socket = io();
+// Initialize socket variable
+let socket;
 
 // DOM elements
 const startButton = document.getElementById('startButton');
@@ -99,34 +99,66 @@ async function playAudio(audioBlob) {
     }
 }
 
-// Socket.io event listeners
-socket.on('connect', () => {
-    updateStatus('Connected to server.');
-});
+// Register all Socket.io event listeners
+function registerSocketListeners() {
+    socket.on('connect', () => {
+        updateStatus('Connected to server.');
+    });
 
-socket.on('disconnect', () => {
-    updateStatus('Disconnected from server.');
-    stopAudioChat();
-});
+    socket.on('disconnect', () => {
+        updateStatus('Disconnected from server.');
+        stopAudioChat();
+    });
 
-socket.on('audio', (audioChunk) => {
-    // Convert the received audio chunk to a Blob
-    const audioBlob = new Blob([audioChunk], { type: 'audio/webm; codecs=opus' });
-    playAudio(audioBlob);
-});
+    socket.on('audio', (audioChunk) => {
+        // Convert the received audio chunk to a Blob
+        const audioBlob = new Blob([audioChunk], { type: 'audio/webm; codecs=opus' });
+        playAudio(audioBlob);
+    });
 
-socket.on('status', (data) => {
-    userCountElement.textContent = data.clients;
-    updateStatus(`Connected to server with ${data.clients} total users.`);
-});
+    socket.on('status', (data) => {
+        userCountElement.textContent = data.clients;
+        updateStatus(`Connected to server with ${data.clients} total users.`);
+    });
 
-socket.on('user-joined', (data) => {
-    userCountElement.textContent = data.totalClients;
-    updateStatus(`New user joined. Total users: ${data.totalClients}`);
-});
+    socket.on('user-joined', (data) => {
+        userCountElement.textContent = data.totalClients;
+        updateStatus(`New user joined. Total users: ${data.totalClients}`);
+    });
+}
+
+// Initialize socket connection by fetching config
+async function initializeSocket() {
+    try {
+        const response = await fetch('/config.json');
+        const config = await response.json();
+        const port = config.port || window.location.port || 3000;
+        
+        // Initialize the socket with the configured port
+        socket = io("//" + window.location.hostname + ":" + port);
+        
+        // Register all event listeners after socket is created
+        registerSocketListeners();
+        
+        updateStatus('Connecting to server...');
+    } catch (error) {
+        console.error('Error initializing socket:', error);
+        updateStatus('Error connecting to server. Using default configuration.');
+        
+        // Fallback to default initialization
+        const port = window.location.port || 3000;
+        socket = io("//" + window.location.hostname + ":" + port);
+        registerSocketListeners();
+    }
+}
 
 // Initial status message
 updateStatus('Welcome to Audio Chat. Click "Start Chat" to begin.');
+
+// Initialize socket when the page loads
+(async function() {
+    await initializeSocket();
+})();
 
 // Ensure resources are cleaned up when page is closed
 window.addEventListener('beforeunload', () => {
