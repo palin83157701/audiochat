@@ -3,6 +3,8 @@ import asyncio
 import logging
 import uuid
 import base64
+import json
+from pathlib import Path
 from typing import Dict, Optional
 import socketio
 import uvicorn
@@ -158,7 +160,18 @@ def start_server(host: str = '0.0.0.0', port: int = 8000):
 if __name__ == "__main__":
     # Read configuration from environment variables
     host = os.environ.get("HOST", "0.0.0.0")
-    port = int(os.environ.get("PORT", "8000"))
+    
+    # Try to get port from config.json, with fallback to default
+    config_port = 8000
+    try:
+        config_path = Path(__file__).resolve().parent.parent / 'config.json'
+        with open(config_path) as f:
+            config_port = int(json.load(f).get('port', 8000))
+    except Exception as e:
+        logger.warning(f'Failed to load config.json: {e}')
+    
+    # Environment variable PORT overrides config file
+    port = int(os.environ.get('PORT', config_port))
     
     # Start the server
     start_server(host, port)
